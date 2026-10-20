@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hand–eye calibration</title>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/handeye.css">
+<script type="module" src="/assets/handeye.js"></script>
+</head>
+<body><main>
+<header class="header"><div class="brand"><span class="brand-icon" aria-hidden="true">◉ ◇</span><div><h1>Hand–eye calibration</h1><p>Fixed stereo camera · wrist-mounted board</p></div></div><div class="header-right"><button id="newRun" hidden title="Keep this run saved and open setup for a new run">New run</button><button id="streamOnly" title="Suspend board detection while keeping camera video and arm feedback live">Stream only</button><a href="/">Stereo calibration</a><button id="folder" disabled>Open session folder</button><span id="connection" class="connection">Connecting</span></div></header>
+<nav class="steps" aria-label="Hand-eye stages"><span data-stage="setup"><b>1</b> Setup</span><span data-stage="guided"><b>2</b> Guided calibration</span><span data-stage="complete"><b>3</b> Result</span></nav>
+<div id="error" class="notice error" role="alert" hidden></div>
+<section id="setup" class="panel he-setup">
+<div><span class="eyebrow">CAMERA TO ROBOT</span><h2>Connect the two coordinate systems</h2><p>Keep the camera fixed and the printed board rigidly attached to the wrist. You move the arm using your normal teleop; this mode only observes.</p><p class="hint" id="calibration">Checking your saved stereo calibration…</p></div>
+<div class="he-setup-fields"><label>Follower arm<select id="side"><option value="right">Right · L20</option><option value="left">Left · L20</option></select></label><p>Wrist board · 4 × 5 squares<br><strong>25 mm squares · 20 mm markers</strong><br><span class="hint">DICT_4X4_50 · IDs 20–29 · modern layout</span></p><label class="check"><input id="mounted" type="checkbox"> Board is flat and firmly mounted; printed scale checked.</label><button class="primary" id="start" disabled>Start new run</button><p class="hint">A new run starts with zero poses. Previous runs remain saved.</p><div class="he-resume"><select id="runs" aria-label="Saved hand-eye session"><option value="">Saved hand–eye sessions</option></select><button id="resume" disabled>Resume</button></div><p class="hint">Resume only if the camera, arm base and board mount have not moved relative to their supports.</p></div>
+</section>
+<div id="working" class="he-grid" hidden>
+<aside class="panel guide">
+<div class="section-top"><span class="eyebrow" id="stageLabel">GUIDED CALIBRATION</span><span id="badge" class="badge">Checking</span></div>
+<h2 id="title">Show the wrist board</h2>
+<p id="modelRange" class="hint" hidden></p>
+<div class="he-quality" aria-label="Calibration coverage and consistency">
+<div><span>Rotation coverage</span><strong id="coverageStatus">Waiting for poses</strong></div>
+<div><span>Fit · worst pose</span><strong id="fitError">—</strong></div>
+<div><span id="validationLabel">Withheld-pose error</span><strong id="validationError">—</strong></div>
+<p id="budgetShort">Native camera pixels</p>
+</div>
+<div class="he-progress"><strong id="count">0</strong><span>active poses</span></div>
+<div class="he-hold" id="holdArea"><div><span id="holdLabel">Guided capture is off</span><strong id="holdPercent"></strong></div><div class="hold-track"><div id="holdFill"></div></div></div>
+<div class="controls"><button id="autoCapture" class="primary">Start guided capture</button><button id="pause">Pause session</button></div>
+<details class="he-manual"><summary>Manual controls</summary><div class="controls"><button id="capture" disabled>Capture this pose manually</button><button id="undo" disabled>Undo last pose</button><button id="excludeFailed" hidden>Exclude rejected poses</button></div></details>
+</aside>
+<div class="main-column">
+<section class="panel he-guidance" id="guidePanel" aria-label="Next pose guidance">
+<div class="he-guide-copy"><span class="eyebrow" id="guideEyebrow">POSE SUGGESTION · YOU MOVE THE ARM</span><h2 id="guideTitle">Show the board</h2><p id="guideInstruction" role="status" aria-live="polite"></p><p id="guideBenefit" class="hint" hidden></p><div class="he-guide-actions"><div class="he-guide-feedback"><span id="guideError"></span><div id="poseSteps" class="he-pose-steps" aria-label="Live remaining tilt and turn angles, in suggested order" hidden>
+<div id="poseStepY"><span id="poseNameY">Edge tilt</span><strong id="poseRemainingY">—</strong><small id="poseDirectionY"></small></div>
+<div id="poseStepX"><span id="poseNameX">Edge tilt</span><strong id="poseRemainingX">—</strong><small id="poseDirectionX"></small></div>
+<div id="poseStepZ"><span id="poseNameZ">Turn</span><strong id="poseRemainingZ">—</strong><small id="poseDirectionZ"></small></div>
+</div><p id="poseReadoutStatus" class="he-pose-readout-status" hidden></p></div><button id="guideNext">Another suggestion</button><button id="retryCapture" class="primary" hidden>Retry capture</button><button id="reviewDetails" hidden>Review details</button></div><p class="hint" id="captureAttemptStatus" role="status" aria-live="polite" hidden></p><p class="hint" id="poseLegend">Red: current pose · Green: suggested pose</p></div>
+<div class="he-guide-picture" id="guidePicture"><div class="illustration" id="illustration" data-motion="position">
+          <svg id="guideGraphic" viewBox="0 0 260 155"><defs><marker id="movementHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1d826b"/></marker></defs>
+            <ellipse id="boardShadow" cx="130" cy="138" rx="58" ry="5" fill="#dfe8df"/>
+            <g id="boardDrawing"><rect id="boardPaper" x="53" y="18" width="154" height="116" rx="4" fill="#fff" stroke="#becfc2"/><image id="guideBoard" x="59" y="24" width="142" height="104" preserveAspectRatio="xMidYMid meet"/><path id="edgeHighlight" stroke="#1e987e" stroke-width="4" fill="none"/></g>
+
+            <g id="positionDrawing">
+              <rect x="38" y="24" width="184" height="104" rx="7" fill="#fff" stroke="#becfc2"/>
+              <path d="M99 24V128M161 24V128M38 59H222M38 93H222" stroke="#e1e8e0" stroke-dasharray="3 4"/>
+              <line id="positionArrow" x1="130" y1="76" x2="170" y2="76" stroke="#1d826b" stroke-width="3" marker-end="url(#movementHead)"/>
+              <ellipse id="positionTarget" cx="185" cy="76" rx="25.76" ry="14.56" fill="#e0f4fb" stroke="#37bde9" stroke-width="2"/>
+              <image id="positionBoard" x="167" y="63" width="36" height="26" preserveAspectRatio="xMidYMid meet"/>
+              <text x="130" y="17" text-anchor="middle">LEFT VIEW</text>
+            </g>
+          </svg>
+          <div id="posePreview" class="he-pose-preview" hidden>
+            <div id="poseBoard" class="he-pose-board"><img id="poseBoardImage" alt="Wrist board pose demonstration"><i id="poseEdge" class="he-pose-edge" aria-hidden="true"></i></div>
+            <span id="poseWaiting">Show the board to the camera</span>
+          </div>
+          <p id="posePhase" class="he-pose-phase" hidden></p>
+          <p id="poseDepthCue" class="he-pose-depth" hidden></p>
+          <p id="posePerspective" class="he-pose-perspective" hidden>CAMERA-VIEW SCHEMATIC · TILT / TURN<br>Blue mark identifies the edge to tilt</p>
+          <p id="guideBoardLabel" class="board-label"></p>
+        </div></div>
+<div id="guidePaused" class="he-guide-paused" hidden><img src="/api/handeye/board.png" alt="Printed calibration board"><span class="he-paused-badge" id="guidePausedLabel">Ⅱ Paused</span><small id="guidePausedHint">No motion target</small></div>
+<div id="recordingNotice" class="he-recording-notice" role="status" hidden><strong>Automatic recording paused</strong><span id="recordingNoticeText"></span></div>
+</section>
+<section class="panel viewer">
+<div class="viewer-toolbar"><strong>Camera view</strong><select id="source" aria-label="Preview source"><option value="live">Live video</option><option value="measured">Detected frame</option></select></div>
+<div class="eye-labels"><span id="leftEyeLabel">LEFT CAMERA</span><span id="rightEyeLabel">RIGHT CAMERA</span></div>
+<div id="frameWrap" class="frame-wrap"><img id="frame" alt="Detected stereo frame with corner overlays" hidden><div id="positionOverlay" class="he-position-overlay" aria-hidden="true" hidden><svg viewBox="0 0 200 100" preserveAspectRatio="none"><defs><clipPath id="positionLeftClip"><rect width="100" height="100"/></clipPath></defs><ellipse clip-path="url(#positionLeftClip)" id="livePositionTarget" cx="50" cy="50" rx="14" ry="14"/></svg><i id="positionTargetDot"></i><span id="positionTargetLabel">Board centre here</span></div><svg id="pointOverlay" class="point-overlay" aria-hidden="true"></svg><div id="emptyFrame"><h3>Waiting for camera</h3><p>Your existing camera stream will appear here.</p></div></div>
+<div class="viewer-footer"><span id="videoLabel">Live video</span><span id="videoRate">—</span></div>
+<div id="positionLegend" class="he-position-legend" hidden><i></i><span id="positionLegendText">Blue dot: board position</span></div>
+<div class="inspection-counts"><div><span>LEFT CORNERS</span><strong id="inspectLeft">— / 12</strong></div><div><span>SHARED</span><strong id="inspectShared">— / 12</strong></div><div><span>RIGHT CORNERS</span><strong id="inspectRight">— / 12</strong></div><span id="inspectStatus">Waiting for detection</span></div>
+<p id="message" role="status" class="he-message"></p>
+<details class="point-inspector" id="pointInspector">
+<summary>Inspect detected corners</summary>
+<div id="measuredPanel" class="he-measured-panel"><div class="he-measured-heading"><strong>Detected corners · exact measured frame</strong><span id="measuredRate">Waiting for detection</span></div><div class="he-measured-frame"><img id="measuredFrame" alt="Exact stereo detection frame" hidden><svg id="measuredOverlay" class="point-overlay" aria-hidden="true"></svg></div><p class="hint">Exact measured frame; updates at detection speed.</p></div>
+<div class="inspection-body"><div class="detected-board"><svg id="detectionBoard" role="img" aria-label="Wrist board corner detection map"></svg><div class="point-legend"><span class="shared-dot">Both</span><span class="left-dot">Left only</span><span class="right-dot">Right only</span><span class="missing-dot">Missing</span></div></div>
+<div class="inspection-metrics"><label class="check"><input type="checkbox" id="showPointIds" checked> Corner IDs on detected frame</label><div><span>Stereo alignment · P95</span><strong id="liveAlignment">—</strong><small id="alignmentScope">Original-camera pixels · all shared IDs</small></div><div><span>Rectified vertical gap · P95</span><strong id="liveRectified">—</strong><small id="rectifiedScope">Inside both rectified images</small></div><p id="inspectionNote" class="hint">Show the complete board to both cameras.</p></div></div>
+</details>
+</section>
+
+<section id="result" class="panel he-result" hidden><div class="section-top"><h2 id="resultTitle">Calibration consistency</h2><span id="resultBadge" class="badge">Pending</span></div><p id="resultText"></p><div class="table-scroll"><table><thead><tr><th>Fresh pose</th><th>Left / right RMS · px</th><th>Pose disagreement</th><th>Result</th></tr></thead><tbody id="checks"></tbody></table></div><div class="artifact-links"><a id="downloadReport" hidden>Download report</a><a id="downloadTransform" hidden>Download transforms</a><a id="downloadModel" hidden>Download matching arm model</a><a id="downloadRun">Download observations</a></div><p class="hint">These checks measure geometric consistency. The wrist-to-palm transform and physical grasp accuracy still need validation. Nothing is applied to the robot automatically.</p></section>
+<details id="calibrationDetails" class="panel he-details"><summary>Calibration details</summary><div class="he-details-body">
+<p class="he-copy" id="instructions"></p>
+<p id="readinessReason" class="he-readiness" role="status"></p>
+<p id="guideReason" class="hint"></p>
+<div class="he-coverage" aria-label="Measured arm rotation coverage">
+<div><span>Orientation spread</span><strong id="coverageSpan">—</strong><small id="coverageSpanTarget">Waiting for policy</small></div>
+<div title="Rotation variation along the second independent axis. Repeating one tilt axis does not satisfy this condition."><span>Second tilt axis</span><strong id="coverageExcitation">—</strong><small id="coverageExcitationTarget">Waiting for policy</small></div>
+<div><span>Position range</span><strong id="coveragePosition">—</strong><small>Observed extent · no target</small></div>
+</div>
+
+<p id="pixelBudget">Geometric image agreement · original-camera pixels.</p>
+<p id="priorValidationNotice" class="he-check-notice" hidden></p><p id="checkNotice" class="he-check-notice" hidden></p>
+<div class="he-telemetry"><div><span>MEASURED ARM FEEDBACK</span><strong id="feedback">Waiting</strong><small id="topic"></small></div><div><span>CAMERA / ARM TIME GAP</span><strong id="skew">—</strong><small>Stationary captures · host timing</small></div><div><span>BOARD REPROJECTION · L / R</span><strong id="reprojection">—</strong><small>Native camera pixels</small></div></div>
+<p id="jointNotice" class="notice he-joint-notice" role="status" hidden></p>
+<h3>Recorded poses</h3><p id="countLabel"></p><div id="captures" class="he-captures"></div><details id="excludedDetails" class="he-excluded" hidden><summary id="excludedCount">Excluded poses</summary><div id="excludedCaptures" class="he-captures"></div><p class="hint">Original recordings retained; excluded from fitting.</p></details>
+<p id="recoveryNotice" class="hint" hidden></p><p id="path" class="hint"></p>
+<p class="hint" id="diversity"></p><p class="hint" id="coverageMotionHint">Use comfortable poses with clearance from the table and camera rod.</p>
+</div></details>
+</div></div>
+</main></body></html>

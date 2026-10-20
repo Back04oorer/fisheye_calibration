@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Stereo calibration</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+<main>
+  <header class="header">
+    <div class="brand"><span class="brand-icon" aria-hidden="true">◉ ◉</span><div><h1>Stereo calibration</h1><p>ChArUco · fisheye cameras</p></div></div>
+    <div class="header-right"><a href="/hand-eye">Hand–eye calibration ↗</a><span id="activeSession" class="active-session"></span><a id="resultsShortcut" href="#results" hidden>Results</a><button id="streamOnly" data-action="stream_only" title="Suspend board detection while keeping camera video live">Stream only</button><button id="sessionsButton">Sessions</button><span id="connection" class="connection">Connecting</span></div>
+  </header>
+  <section id="sessionLanding" class="panel session-landing" hidden><h2>Choose a session</h2><p>Continue a calibration or start a new one.</p><button id="chooseSession" class="primary">Open sessions</button></section>
+  <div id="calibrationWorkspace" hidden>
+  <nav class="steps" aria-label="Calibration stages">
+    <span data-step="setup"><b>1</b> Board & camera</span><span data-step="collect"><b>2</b> Guided collection</span>
+    <span data-step="result"><b>3</b> Results</span>
+  </nav>
+  <div id="error" class="notice error" role="alert" hidden></div>
+  <section class="setup panel" id="setupPanel">
+    <div class="setup-copy"><h2>Match your board</h2><p>Print at <strong>100%</strong>. Measure the squares and mount flat.</p><img id="boardPreview" src="/api/board.png" alt="Selected ChArUco board layout"><p class="board-meta" id="boardMeta"></p></div>
+    <form id="setupForm">
+      <div class="form-grid">
+        <label class="span-2">Board preset<select id="preset"><option value="existing-20mm">Existing PDF · 11 × 8 · 20 mm squares</option><option value="a4-30mm">A4 larger features · 8 × 6 · 30 mm squares</option></select></label>
+        <label>Measured square length <span>(mm)</span><input id="square" type="number" step="0.01" value="20" min="0.01" required></label>
+        <label>Camera<input id="device" value="0" list="devices" required><datalist id="devices"></datalist></label>
+        <label>Full stereo width<input id="width" type="number" step="2" value="2560" required></label>
+        <label>Image height<input id="height" type="number" value="720" required></label>
+        <label>Requested FPS<input id="fps" type="number" value="30" required></label>
+        <label class="check"><input id="swap" type="checkbox"> Swap left and right</label>
+      </div>
+      <p class="hint">Move closer if the board is not detected.</p>
+      <div class="form-actions"><button type="submit" id="apply">Apply settings</button><a class="text-link" id="downloadBoard" href="/api/board.pdf?preset=existing-20mm">Print this board ↗</a><span id="settingsStatus">Settings ready</span></div>
+    </form>
+  </section>
+  <div class="workspace">
+    <aside>
+      <section class="panel guide">
+        <div class="section-top"><span class="eyebrow" id="guideLabel">NEXT MOVEMENT</span><span class="badge" id="phase">Board check</span></div>
+        <h2 id="goalTitle">Show your board</h2>
+        <p id="guideContext" class="guide-context" hidden></p>
+        <div class="illustration" id="illustration" data-motion="position" aria-hidden="true">
+          <svg viewBox="0 0 260 155"><defs><marker id="movementHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#1d826b"/></marker></defs>
+            <ellipse id="boardShadow" cx="130" cy="138" rx="58" ry="5" fill="#dfe8df"/>
+            <g id="boardDrawing"><rect id="boardPaper" x="53" y="18" width="154" height="116" rx="4" fill="#fff" stroke="#becfc2"/><image id="guideBoard" x="59" y="24" width="142" height="104" preserveAspectRatio="xMidYMid meet"/><path id="edgeHighlight" stroke="#1e987e" stroke-width="4" fill="none"/></g>
+            <g id="positionDrawing">
+              <rect x="38" y="24" width="184" height="104" rx="7" fill="#fff" stroke="#becfc2"/>
+              <path d="M99 24V128M161 24V128M38 59H222M38 93H222" stroke="#e1e8e0" stroke-dasharray="3 4"/>
+              <line id="positionArrow" x1="130" y1="76" x2="170" y2="76" stroke="#1d826b" stroke-width="3" marker-end="url(#movementHead)"/>
+              <ellipse id="positionTarget" cx="185" cy="76" rx="25.76" ry="14.56" fill="#e0f4fb" stroke="#37bde9" stroke-width="2"/>
+              <image id="positionBoard" x="167" y="63" width="36" height="26" preserveAspectRatio="xMidYMid meet"/>
+              <text x="130" y="17" text-anchor="middle">LEFT VIEW</text>
+            </g>
+          </svg>
+          <p id="guideBoardLabel" class="board-label"></p>
+        </div>
+        <p id="instruction">Show the entire board to both cameras. Green points mark shared corners.</p>
+        <div class="hold" id="captureStatus"><div class="hold-label"><span id="captureMessage">Waiting for a camera frame</span><span id="holdPercent"></span></div><div class="hold-track"><div id="holdFill"></div></div></div>
+        <div class="controls"><button class="primary" id="start" data-action="start">Start guided capture</button><button id="pause" data-action="pause" hidden>Pause</button><button id="undo" data-action="undo" hidden>Undo last</button><button id="more" data-action="more" hidden>Add training views</button><button id="reconnect" data-action="reconnect" hidden>Reconnect camera</button></div>
+      </section>
+      <details class="panel progress-panel"><summary><span id="goalsLabel">Movements</span> <span id="goalCount"></span></summary><div id="goals" class="goals"></div></details>
+    </aside>
+    <div class="main-column">
+      <section class="panel viewer">
+        <div class="viewer-toolbar"><div class="segmented" aria-label="Preview camera"><button data-eye="both" aria-pressed="true">Both</button><button data-eye="left" aria-pressed="false">Left</button><button data-eye="right" aria-pressed="false">Right</button></div><div class="preview-options"><select id="previewSource" aria-label="Preview source"><option value="live">Live video</option><option value="measured">Detected frame</option></select><label class="projection-label">View<select id="projection"><option value="raw">Original</option><option value="rectified" disabled>Rectified</option></select></label></div></div>
+        <div class="eye-labels"><span>LEFT CAMERA</span><span>RIGHT CAMERA</span></div>
+        <div id="frameWrap" class="frame-wrap" data-eye="both"><img id="frame" alt="Live stereo camera with detected corner overlays" hidden><svg id="pointOverlay" class="point-overlay" aria-hidden="true"></svg><div id="emptyFrame"><span class="empty-icon">◉ ◉</span><h3>Waiting for camera</h3><p>Select your camera above. The preview will appear here.</p></div></div>
+        <div class="viewer-footer"><span id="previewLabel">Green: detected corners · Cross: board centre · Blue: target</span><span id="frameRate">—</span></div>
+        <div class="inspection-counts" aria-label="Detected ChArUco corners"><div><span>LEFT</span><strong id="inspectLeft">—</strong></div><div><span>SHARED IDS</span><strong id="inspectShared">—</strong></div><div><span>RIGHT</span><strong id="inspectRight">—</strong></div><span id="inspectStatus">Waiting for frame</span></div>
+        <details class="point-inspector" id="pointInspector">
+          <summary>Live verification <span>Counts show detection, not calibration accuracy</span></summary>
+          <div class="inspection-body">
+            <div class="detected-board"><svg id="detectionBoard" role="img" aria-label="Detected ChArUco corner IDs on the board"></svg><div class="point-legend"><span class="shared-dot">Both</span><span class="left-dot">Left only</span><span class="right-dot">Right only</span><span class="missing-dot">Missing</span></div></div>
+            <div class="inspection-metrics">
+              <label class="check"><input type="checkbox" id="showPointIds"> Corner IDs on detected frame</label>
+              <div><span>Stereo alignment · P95</span><strong id="liveAlignment">—</strong><small id="alignmentScope">Original-camera pixels · all shared IDs</small></div>
+              <div><span>Rectified vertical gap · P95</span><strong id="liveRectified">—</strong><small id="rectifiedScope">Inside both rectified images</small></div>
+              <p id="inspectionNote" class="hint">Show the board to both cameras.</p>
+              <div id="inspectionRecording" hidden><span id="inspectionRecordingStatus"></span><button data-action="stop_inspection" id="stopInspection">Stop recording</button></div>
+            </div>
+          </div>
+        </details>
+      </section>
+      <details id="savedPanel" class="panel saved-panel" open hidden>
+        <summary><strong id="savedCount">Saved pairs</strong><span id="savedUsage"></span></summary>
+        <div id="savedViews" class="saved-views"></div>
+      </details>
+      <section id="results" class="panel results" hidden>
+        <div class="section-top"><h3>Calibration</h3><span id="resultBadge" class="badge">Pending</span></div>
+        <h2 id="resultTitle">Keep following the guide</h2><p id="resultText">Accuracy checks run automatically.</p>
+        <div id="artifacts" class="artifact-links"></div>
+        <details class="measurements"><summary>Measurements</summary><p id="retryReason" class="hint" hidden></p>
+        <div class="result-numbers"><div><span>FIT RMS · L / R / STEREO</span><strong id="fitRms">—</strong></div><div><span>ESTIMATED BASELINE</span><strong id="baseline">—</strong></div></div>
+        <div class="table-scroll"><table><thead><tr><th>Check</th><th>Each camera L / R · px</th><th>Stereo L→R / R→L · px</th><th>Result</th></tr></thead><tbody id="viewResults"></tbody></table></div>
+        <p class="hint">Target: &lt; 1 px RMS in original camera pixels. Physical depth accuracy is not measured.</p></details>
+      </section>
+    </div>
+  </div>
+  <details class="panel diagnostics"><summary>Session & diagnostics</summary><div class="diagnostics-body">
+    <p id="sessionPath"></p>
+    <div class="folder-actions"><button data-folder="session" hidden>Open session folder</button><button data-folder="diagnostics" hidden>Open diagnostics</button><button data-folder="logs" hidden>Open latest log</button></div>
+    <p id="modeDetails"></p>
+    <section class="quality-row" aria-label="Live detection quality"><div class="panel"><span>LEFT CORNERS</span><strong id="leftCorners">—</strong><small id="leftSquare"></small></div><div class="panel"><span>SHARED CORNERS</span><strong id="sharedCorners">—</strong></div><div class="panel"><span>RIGHT CORNERS</span><strong id="rightCorners">—</strong><small id="rightSquare"></small></div></section>
+    <div class="coverage-panel"><div><h3>Training coverage</h3><p class="hint">Detected corners per image region.</p></div><div class="coverage-eye"><span>LEFT</span><div class="coverage-grid" id="leftCoverage"></div></div><div class="coverage-eye"><span>RIGHT</span><div class="coverage-grid" id="rightCoverage"></div></div></div>
+    <div class="counts"><div><strong id="trainingCount">0</strong><span>training pairs</span></div><div><strong id="validationCount">0</strong><span>check images evaluated</span></div></div>
+    <p id="sharpness"></p><button id="fit" data-action="fit" disabled>Fit collected views</button>
+    <p class="hint">New images check the fitted calibration independently. These checks and any retries stay within guided collection.</p>
+  </div></details>
+  </div>
+</main>
+<dialog id="sessionDialog" aria-labelledby="sessionTitle">
+  <div class="section-top"><h2 id="sessionTitle">Your sessions</h2><button id="closeSessions" aria-label="Close sessions">Close</button></div>
+  <button id="newSession" class="primary" autofocus>+ New session</button>
+  <p id="sessionError" class="notice error" role="alert" hidden></p>
+  <div id="sessionList" class="session-list"></div>
+  <details class="open-session-folder"><summary>Load another session folder</summary><form id="sessionPathForm"><label>Session folder<input id="openSessionPath" placeholder="/path/to/session" required></label><button type="submit">Load</button></form></details>
+  <div class="session-storage"><p id="sessionDirectory" class="session-directory"></p><button id="openSessionsFolder">Open sessions folder</button></div>
+</dialog>
+<div id="toast" role="status" hidden></div>
+</body>
+</html>

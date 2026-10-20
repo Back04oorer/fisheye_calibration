@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stereo-calibration"
+version = "0.1.0"
+description = "Guided ChArUco calibration for side-by-side fisheye cameras"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.2,<3",
+  "scipy>=1.16,<2",
+  "opencv-contrib-python>=4.13,<5.1",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "reportlab>=4.3,<5",
+]
+
+[project.scripts]
+stereo-calibrate = "stereo_calibration.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "httpx>=0.28,<1", "ruff>=0.11,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["stereo_calibration"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
